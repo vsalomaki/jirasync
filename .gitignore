@@ -1,0 +1,67 @@
+# ---------------------------------------------------------------- config ---
+# Live configuration carries hostnames, field IDs and instance details.
+# Only the *.example.yaml files are committed.
+config/*.yaml
+!config/*.example.yaml
+canonical-schema.yaml
+!canonical-schema.example.yaml
+
+# --------------------------------------------------------------- secrets ---
+.env
+.env.*
+*.token
+*.pat
+
+# ----------------------------------------------------------------- state ---
+# Not reconstructible from Jira (ADR-007, ADR-021). Back it up out of band,
+# but never commit it.
+state/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# ------------------------------------------------------------- artifacts ---
+# Produced by a run. Every one of these can contain issue data.
+raw-*.zip
+bundle-*.zip
+transport/
+quarantine/
+conflicts.json
+resolutions.json
+adoption-report.json
+scrub-report.json
+SHA256SUMS
+SHA256SUMS.sig
+
+# The original design handoff, kept locally for reference.
+files.zip
+
+# ----------------------------------------------------------------- build ---
+# NOTE: *.complete-platform.json IS committed. It records a supported release
+# target (ADR-014). Do not add it here.
+*.pex
+*.pyz
+dist/
+build/
+*.egg-info/
+wheelhouse/
+
+# ---------------------------------------------------------------- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ------------------------------------------------------------------ misc ---
+# Probe output is fine to commit as docs/probe-<instance>.txt, but not the
+# scratch files the script writes.
+/tmp/probe_*
+.idea/
+.vscode/
+*.swp
