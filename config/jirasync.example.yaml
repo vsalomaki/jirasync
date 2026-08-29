@@ -1,0 +1,42 @@
+# jirasync.yaml: TOP-LEVEL CONFIG
+#
+# Names the Jira instances this deployment talks to, and how bundles move
+# between them. Everything else (credentials, field mappings, scope, state)
+# lives in the per-instance files referenced below. See instance.example.yaml.
+#
+# Copy to jirasync.yaml and edit. jirasync.yaml is gitignored.
+
+mode: split                         # split | direct
+
+# Sync is one-way: source → destination. Direction is declared here rather than
+# chosen per run, so reversing the flow is a config change someone can review,
+# not a flag someone can mistype. See ADR-019.
+#
+# split   this deployment is ONE end of the flow. Define exactly one of source
+#         or destination, whichever this side is. The key you fill in is the
+#         role, and the commands belonging to the other role are refused at
+#         config load: a destination deployment cannot export.
+#
+# direct  this deployment is BOTH ends. Define both.
+#
+# The shape is validated against the mode at load. That check is what keeps a
+# split deployment from holding the far end's credentials. See ADR-018.
+
+source: ./config/alpha.yaml
+# destination: ./config/beta.yaml   # the other end, in direct mode
+
+canonical_schema: ./canonical-schema.yaml
+
+# ------------------------------------------------------------- transport ---
+# How bundles move from source to destination. The bundle is identical either
+# way; only delivery differs. Ignored in direct mode. See ADR-015.
+
+transport:
+  kind: file                        # file | https  (https not implemented)
+                                    # https is still a discrete run, not a
+                                    # listener. See ADR-017
+  outbox: ./transport/outbox        # normalize writes bundles here  (source)
+  inbox: ./transport/inbox          # plan reads bundles from here   (destination)
+  # kind: file moves nothing. These are directories: removable media, a mounted
+  # share, or a staging area some other process ships from. Delivery is not
+  # jirasync's claim to make.
