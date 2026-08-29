@@ -40,15 +40,29 @@ _JQL_RELATIVE_LITERAL = re.compile(r"(?<![\w.])[-+]\s*\d+[smhdwMy]\b")
 _JQL_QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
 # A field sits at the start of a clause and is followed by an operator. Matching
 # on position is what separates the `updated` field from the word `updated`
-# appearing inside a field name or a text search value.
+# appearing inside a field name or a text search value. The operator list has to
+# be complete, including the multiword forms: miss one and the field it guards
+# stops being checked at all.
+_JQL_OPERATOR = r"""
+    [<>]=? | !?[=~]
+  | \b(?: not \s+ in
+        | is (?:\s+ not)?
+        | in
+        | was (?:\s+ not)? (?:\s+ in)?
+        | changed
+        ) \b
+"""
 _JQL_FIELD = re.compile(
     r"""(?:\A|[\s(,])
         (?: "(?P<dq>[^"]*)" | '(?P<sq>[^']*)' | (?P<bare>[A-Za-z][\w.]*) )
         \s*
-        (?: [<>]=? | !?[=~] | \b(?:is|in|was|changed)\b )
+        (?:"""
+    + _JQL_OPERATOR
+    + r""")
     """,
     re.VERBOSE | re.IGNORECASE,
 )
+_JQL_ORDER_BY = re.compile(r"\border\s+by\b", re.IGNORECASE)
 
 _DURATION = re.compile(r"^(?P<n>\d+)(?P<unit>[smh])$")
 
@@ -132,6 +146,14 @@ class ScopeEntry(BaseModel):
         if "updated" in fields:
             raise ValueError(
                 "scope JQL may not filter on `updated`; the exporter appends the watermark itself"
+            )
+        # The watermark is appended as `<scope> AND updated >= ...`, which lands
+        # after an ORDER BY and produces JQL Jira will reject. Sorting a scope
+        # also does nothing useful: the exporter pages the whole result set.
+        if _JQL_ORDER_BY.search(_JQL_QUOTED.sub(" ", v)):
+            raise ValueError(
+                "scope JQL may not contain ORDER BY; the exporter appends the watermark "
+                "after the scope, which would land after the sort clause"
             )
         # A function is only a function unquoted. Quoted, it is a string literal
         # and Jira would reject it for a date field anyway, so checking outside
@@ -232,7 +254,7 @@ class Users(BaseModel):
 
 
 class Toggle(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
 
     export: bool = True
     import_: bool = Field(default=True, alias="import")

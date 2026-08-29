@@ -32,6 +32,12 @@ def test_round_trips_through_json(instance_path):
         "project = PF AND reporter = currentUser()",
         "project = PF AND reporter = CurrentUser()",
         "project = PF AND reporter = currentLogin()",
+        # Multiword operators: missing one stops the field being checked at all.
+        'project = PF AND updated NOT IN ("2026-01-01")',
+        'project = PF AND "updated" NOT IN ("x")',
+        "project = PF AND updated IS NOT EMPTY",
+        'project = PF AND updated WAS NOT IN ("x")',
+        "project = PF AND updated CHANGED",
     ],
 )
 def test_scope_jql_must_be_deterministic(mutate, instance_path, jql):
@@ -54,6 +60,9 @@ def test_scope_jql_must_be_deterministic(mutate, instance_path, jql):
         'project = PF AND summary ~ "updated"',
         'project = PF AND description ~ "currentUser()"',
         'project = PF AND summary ~ "fix-30d"',
+        "project = PF AND status NOT IN (Done, Closed)",
+        "project = PF AND assignee IS NOT EMPTY",
+        'project = PF AND summary ~ "order by updated"',
     ],
 )
 def test_deterministic_scope_jql_is_accepted(mutate, instance_path, jql):
@@ -174,3 +183,28 @@ def test_two_canonical_names_cannot_share_one_local(
     path = mutate(instance_path, "instance.yaml", lambda d: d[key].update({canonical: collide}))
     with pytest.raises(ConfigError, match="mapped from more than one canonical name"):
         load_instance_config(path, load_canonical_schema(schema_path))
+
+
+@pytest.mark.parametrize(
+    "jql",
+    [
+        "project = PF ORDER BY created",
+        "project = PF ORDER BY updated DESC",
+        "project = PF order by created, updated",
+    ],
+)
+def test_scope_jql_may_not_sort(mutate, instance_path, jql):
+    """The watermark is appended after the scope, so it would land after the sort
+    clause and produce JQL Jira rejects."""
+    path = mutate(instance_path, "instance.yaml", lambda d: d["scope"]["platform"].update(jql=jql))
+    with pytest.raises(ConfigError, match="may not contain ORDER BY"):
+        load_instance_config(path)
+
+
+def test_toggle_accepts_the_field_name_as_well_as_the_alias():
+    """FieldMapping accepts import_, so the toggles must too or the alias is a trap."""
+    from jirasync.instance import Attachments, Toggle
+
+    assert Toggle(import_=False).import_ is False
+    assert Attachments(import_=False).import_ is False
+    assert Toggle.model_validate({"import": False}).import_ is False

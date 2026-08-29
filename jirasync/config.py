@@ -95,7 +95,9 @@ class TopLevelConfig(BaseModel):
 class Deployment(BaseModel):
     """A fully resolved configuration: the top-level file plus what it names."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, arbitrary_types_allowed=True, populate_by_name=True
+    )
 
     config: TopLevelConfig
     schema_: CanonicalSchema = Field(alias="schema")
