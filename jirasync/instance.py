@@ -7,6 +7,7 @@ instance, in either mode (ADR-018).
 from __future__ import annotations
 
 import re
+from collections import Counter
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -372,11 +373,7 @@ def validate_against_schema(
             raise ConfigError(f"no local {label} mapped for {sorted(missing)}", path=path)
         # Export normalises local to canonical, so two canonical names sharing a
         # local one leaves that local value with no single canonical meaning.
-        collisions = {
-            local
-            for local in canonical_map.values()
-            if list(canonical_map.values()).count(local) > 1
-        }
+        collisions = [local for local, n in Counter(canonical_map.values()).items() if n > 1]
         if collisions:
             raise ConfigError(
                 f"local {label}(s) {sorted(collisions)} are mapped from more than one "
