@@ -1,6 +1,6 @@
 import pytest
 
-from jirasync.config import TopLevelConfig, load_deployment, load_top_level_config
+from jirasync.config import Deployment, TopLevelConfig, load_deployment, load_top_level_config
 from jirasync.errors import ConfigError, RoleError
 
 REPO_RELATIVE = {"root": "."}
@@ -128,3 +128,12 @@ def test_direct_deployment_rejects_two_configs_with_the_same_instance_id(write_y
     )
     with pytest.raises(ConfigError, match="same instance id"):
         load_deployment(path, root=repo)
+
+
+def test_deployment_round_trips_through_its_own_json(write_yaml):
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    deployment = load_deployment(write_yaml("jirasync.yaml", _top()), root=repo)
+    restored = Deployment.model_validate_json(deployment.model_dump_json())
+    assert restored == deployment
