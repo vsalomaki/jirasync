@@ -1,0 +1,56 @@
+# A throwaway Jira Data Center for testing the fetch and write layers without
+# touching either real instance. Ports and container names are deliberately
+# distinct so this cannot collide with anything else running on the box.
+#
+# Setup is not fully automatable: Jira asks for an evaluation licence and an
+# administrator account through its web wizard on first run. See README.md
+# in this directory.
+
+name: jirasync-test
+
+services:
+  db:
+    image: postgres:15
+    container_name: jirasync-test-db
+    environment:
+      POSTGRES_DB: jira
+      POSTGRES_USER: jira
+      POSTGRES_PASSWORD: jira
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jira -d jira"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  jira:
+    image: atlassian/jira-software:9.12
+    container_name: jirasync-test-jira
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ATL_JDBC_URL: jdbc:postgresql://db:5432/jira
+      ATL_JDBC_USER: jira
+      ATL_JDBC_PASSWORD: jira
+      ATL_DB_DRIVER: org.postgresql.Driver
+      ATL_DB_TYPE: postgres72
+      # Jira is memory hungry and the default heap is larger than this needs.
+      JVM_MINIMUM_MEMORY: 1024m
+      JVM_MAXIMUM_MEMORY: 2048m
+      ATL_TOMCAT_PORT: "8080"
+    ports:
+      - "127.0.0.1:8180:8080"
+    volumes:
+      - jira:/var/atlassian/application-data/jira
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/status | grep -q RUNNING"]
+      interval: 15s
+      timeout: 10s
+      retries: 60
+      start_period: 180s
+
+volumes:
+  db:
+  jira:
