@@ -131,9 +131,10 @@ def load_top_level_config(path: str | Path) -> TopLevelConfig:
 def load_deployment(path: str | Path, *, root: str | Path | None = None) -> Deployment:
     """Load the top-level config and everything it names.
 
-    Paths inside the config are resolved against `root`, defaulting to the
-    current directory, so a config can be read from anywhere while its relative
-    paths keep meaning what they meant when it was written.
+    Paths inside the config are relative to `root`, which defaults to the current
+    directory rather than to the config's own location. Pass `root` explicitly
+    when reading a config from somewhere other than the directory its relative
+    paths were written against, or they will resolve somewhere unintended.
     """
     config = load_top_level_config(path)
     base = Path(root) if root is not None else Path.cwd()
