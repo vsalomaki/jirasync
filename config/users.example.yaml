@@ -1,0 +1,33 @@
+# users.yaml: LOCAL identity map.
+#
+# Maps this instance's users to canonical identities. Each side maintains its own
+# file; the canonical id is the shared handle. Local only: the peer's usernames
+# never appear here.
+#
+# Prefer keying on the Jira user `key` rather than `name` where available:
+# usernames get renamed, keys do not. See Q2.
+
+key_on: key                         # key | name
+
+users:
+  - canonical: u_jdoe
+    local_key: JIRAUSER10412
+    local_name: jdoe
+    display: Jane Doe
+
+  - canonical: u_asmith
+    local_key: JIRAUSER10533
+    local_name: asmith
+    display: Alex Smith
+
+  - canonical: u_vsalomaki
+    local_key: JIRAUSER10001
+    local_name: vsalomaki
+    display: Ville Salomäki
+
+# Canonical identities with no local counterpart. Referenced by inbound bundles
+# but not resolvable here. Handled per `users.missing_user` in the instance file.
+# Display names are still used to render [~mentions] as readable text.
+unmapped:
+  - canonical: u_rlaine
+    display: Riku Laine

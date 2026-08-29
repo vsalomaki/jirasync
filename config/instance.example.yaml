@@ -1,0 +1,200 @@
+# <instance>.yaml: CONFIG FOR ONE JIRA INSTANCE
+#
+# Describes how ONE Jira stores canonical things. It never references any other
+# instance: no peer URL, no peer credentials, no peer field IDs. That holds in
+# both modes. What changes is how many of these files one deployment loads.
+# See ADR-004 and ADR-018.
+#
+# Referenced from jirasync.yaml by path. Gitignored.
+
+instance:
+  id: beta                          # self-label, appears in bundle manifests
+  base_url: https://jira.internal.local
+  api: dc                           # dc | cloud (cloud not implemented, ADR-005)
+  auth:
+    type: pat                       # pat | basic | cloud_token
+    token_env: JIRASYNC_TOKEN       # never inline the token
+    # Must be a DEDICATED account, never a human's. jirasync excludes its own
+    # changelog entries by author when folding last_changed; sharing a PAT with
+    # an operator drops that operator's edits from every "take newer". Checked
+    # by doctor. See ADR-020.
+  verify_tls: true
+  ca_bundle: null                   # path, for an internal CA
+  timeout_s: 30
+  max_retries: 4
+
+# ---------------------------------------------------------------- identity ---
+
+identity:
+  external_id_field: customfield_20077
+  holds: source_key                 # source_key | shared_external_system  (Q3)
+  match: exact                      # exact | regex
+  # match_regex: '(?:ref\s*)?(?P<id>[A-Z]+-\d+)'   # required if match: regex
+  corroborate_with_summary: true    # only where no base exists. See ADR-021
+  write_on_create: true             # DESTINATION only: source key set in the
+                                    # CREATE call, not a follow-up update
+  write_on_adopt: false             # NEVER overwrite historical human values
+  state_db: ./state/beta.sqlite
+
+  # There is no sync_id. An issue is identified by its source key, which the
+  # destination stores in the field above. See ADR-021.
+
+# ------------------------------------------------------------------- scope ---
+# Base filtering. Both instances hold many issues that must not sync.
+#
+# JQL here may NOT contain relative dates or `updated`. The exporter appends the
+# watermark itself and a `-30d` makes the result set non-deterministic. Rejected
+# at config load. See ADR-011.
+
+scope:
+  platform:
+    local_key: PF
+    jql: 'project = PF AND labels = airgap-sync AND issuetype in (Bug, Story)'
+  tooling:
+    local_key: TOOL
+    jql: 'project = TOOL AND "Sync?" = Yes'
+
+enforce_on_import: quarantine       # quarantine | reject
+quarantine_dir: ./quarantine
+
+# ------------------------------------------------------------------ fields ---
+# Flow direction is set in jirasync.yaml (ADR-019), not here. These flags are
+# role-dependent, and the ones that do not apply are ignored:
+#
+#   on a SOURCE       export, scrub and scope are read; import, on_conflict,
+#                     matching and no_base_policy are not
+#   on a DESTINATION  import, on_conflict, matching, no_base_policy and scope
+#                     are read; export is not
+#
+# canonical_name:
+#   local:      this instance's field ID or name
+#   export:     may this field leave this instance
+#   import:     may this field be written on this instance
+#   values:     local value -> canonical value (one table, used both directions)
+#   on_conflict: interactive | newest_wins | prefer_local | prefer_remote | manual_only
+
+fields:
+  summary:
+    local: summary
+    export: true
+    import: true
+    on_conflict: interactive
+
+  description:
+    local: description
+    export: true
+    import: true                    # on a DESTINATION, false here means
+                                    # descriptions never arrive at all. This is
+                                    # not the old "flows one way" flag (Q6)
+    on_conflict: manual_only
+
+  severity:
+    local: customfield_20044
+    export: true
+    import: true
+    on_conflict: newest_wins
+    values:
+      Blocker: blocker
+      High: high
+      Normal: normal
+      Low: low
+
+  target_release:
+    local: customfield_20051
+    export: true
+    import: true
+    on_conflict: interactive
+
+  reporter:
+    local: reporter
+    export: true
+    import: true
+    on_conflict: interactive
+
+  assignee:
+    local: assignee
+    export: true
+    import: true
+    on_conflict: interactive
+
+  due_date:
+    local: duedate
+    export: true
+    import: true
+    on_conflict: interactive
+
+  labels:
+    local: labels
+    export: true
+    import: true
+    on_conflict: interactive
+
+  internal_notes:
+    local: customfield_20099
+    export: false                   # stays on this side entirely
+    import: false
+
+statuses:
+  open: "To Do"
+  in_progress: "In Progress"
+  blocked: "Blocked"
+  done: "Done"
+
+issue_types:
+  bug: Bug
+  story: Story
+  task: Task
+
+# --------------------------------------------------------------- behaviour ---
+
+unmapped_field: warn                # warn | skip | park
+# park_into: customfield_20500      # required if, and only if, unmapped_field: park
+
+skew_tolerance: 2m                  # within this, never auto-decide (ADR-013)
+no_base_policy: seed_from_source    # seed_from_source | interactive |
+                                    # seed_from_destination   (adopted pairs)
+                                    # seed_from_destination OVERWRITES the
+                                    # destination on round one. See DESIGN §6
+
+comments:
+  export: true
+  import: true
+
+attachments:
+  export: true
+  import: true
+  max_size_mb: 25
+
+deletions:
+  sync: false                       # see Q7
+
+# ------------------------------------------------------------------ scrub ---
+# Applied at normalize. The validator then greps the SERIALISED bundle for these
+# and refuses to write it on any hit. See ADR-009.
+
+scrub:
+  enabled: true                     # off only where both sides trust each other
+  forbidden_patterns:
+    - 'https?://'
+    - 'ftp://'
+    - 'file://'
+    - 'jira\.internal\.local'
+    - '@internal\.example\.com'
+  bare_url_placeholder: '‹link removed›'
+  keep_anchor_text: true
+  remote_links: title_only          # title_only | drop
+
+# --------------------------------------------------------------- matching ---
+# Fallback pairing where the external id is blank. Proposes only. See ADR-008.
+
+matching:
+  fallback: summary                 # summary | none
+  normalize: [lowercase, collapse_ws, strip_punct, strip_key_prefix]
+  require_same_issuetype: true
+  created_within_days: 30
+  fuzzy_threshold: 0.92
+  auto_bind: none                   # none | exact   (exact = --auto-bind-exact only)
+
+users:
+  file: ./config/users.yaml
+  missing_user: unassign_and_note   # unassign_and_note | fail | park

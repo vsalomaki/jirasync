@@ -1,0 +1,43 @@
+[project]
+name = "jirasync"
+version = "0.0.0"
+description = "One-way Jira to Jira issue synchronisation over a self-contained bundle file"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "typer>=0.12",
+    "rich>=13.7",
+    "PyYAML>=6.0",
+    "textual>=0.60",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov", "ruff", "mypy", "respx", "types-PyYAML"]
+release = ["pex>=2.3"]
+
+[project.scripts]
+jirasync = "jirasync.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM", "RUF", "BLE", "PTH", "RET", "ARG"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG"]
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

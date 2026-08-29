@@ -1,0 +1,58 @@
+# canonical-schema.yaml
+#
+# THE SHARED CONTRACT. This file must be byte-identical on both instances.
+# It declares the vocabulary a bundle may use and says nothing about how any
+# instance stores it.
+#
+# Bumping schema_version requires a coordinated rollout to both sides BEFORE the
+# next transport. A bundle whose schema_version does not match the local file is
+# REFUSED at import. See ADR-004.
+
+schema_version: 1
+
+projects:
+  - platform
+  - tooling
+
+issue_types:
+  - bug
+  - story
+  - task
+
+statuses:
+  - open
+  - in_progress
+  - blocked
+  - done
+
+fields:
+  summary:
+    type: text
+  description:
+    type: wiki
+  severity:
+    type: enum
+    values: [blocker, high, normal, low]
+  target_release:
+    type: text
+  reporter:
+    type: user
+  assignee:
+    type: user
+  labels:
+    type: list<text>
+  due_date:
+    type: date
+
+# Fields resolved together as a unit, never split by a per-field "take newer".
+# Every name here must be a declared field above. `status` is a top-level issue
+# property rather than a field and cannot be grouped; resolving it alongside the
+# people-facing fields is what stops an issue being closed under the wrong
+# assignee. See DESIGN §6.
+field_groups:
+  - [assignee, severity]
+
+link_types:
+  - blocks
+  - relates
+  - duplicates
