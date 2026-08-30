@@ -18,20 +18,26 @@ polls `/status` and reports healthy once it returns `RUNNING`.
 
 ## What can come from the environment, and what cannot
 
-Copy `.env.example` to `.env` and run:
+Copy `docker/.env.example` to `docker/.env`, then run this from the repository
+root:
 
     docker compose --env-file docker/.env -f docker/compose.yml up -d
 
-**Settings: yes.** The database configures itself from `ATL_JDBC_*`, so the
+**Settings: yes,** and there are many more of them than this setup uses. The
+image's full variable reference is at
+<https://atlassian.github.io/data-center-helm-charts/containers/JIRA/>.
+The database configures itself from `ATL_JDBC_*`, so the
 wizard never asks for it. Port, image tag, database credentials and JVM sizing
 come from `.env`. Anything the image does not expose directly can still be
 written into `jira-config.properties` through numbered
 `ADDITIONAL_JIRA_CONFIG_NN` variables, with a `__EXPAND_ENV` suffix if a value
 needs a secret substituted from another variable.
 
-**Licence and administrator account: no.** The image's entrypoint has no
-handling for either. Both are written to the database by the setup wizard, so
-there is no variable to set. The remaining manual steps are therefore:
+**Licence and administrator account: no.** That reference lists no variable for
+a licence key, for creating the administrator account, or for skipping the
+wizard, and reading the entrypoint agrees: it handles none of them. Both are
+written to the database by the wizard, so there is nothing to set. The remaining
+manual steps are therefore:
 
 1. **Application properties.** Title and base URL. Anything is fine.
 2. **Licence.** A free 30 day Data Center evaluation key from `my.atlassian.com`,

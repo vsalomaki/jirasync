@@ -36,7 +36,7 @@ services:
       ATL_JDBC_PASSWORD: ${POSTGRES_PASSWORD:-jira}
       ATL_DB_DRIVER: org.postgresql.Driver
       ATL_DB_TYPE: postgres72
-      # Jira is memory hungry and the default heap is larger than this needs.
+      # The image defaults to 384m/768m, which Jira starts on but indexes badly.
       JVM_MINIMUM_MEMORY: ${JVM_MINIMUM_MEMORY:-1024m}
       JVM_MAXIMUM_MEMORY: ${JVM_MAXIMUM_MEMORY:-2048m}
       ATL_TOMCAT_PORT: "8080"
