@@ -9,6 +9,7 @@ canonical-schema.yaml
 # --------------------------------------------------------------- secrets ---
 .env
 .env.*
+!**/.env.example
 *.token
 *.pat
 
@@ -36,6 +37,11 @@ SHA256SUMS.sig
 
 # The original design handoff, kept locally for reference.
 files.zip
+
+# Local Jira: .env carries credentials, the snapshot carries a licence and an
+# admin account.
+docker/.env
+docker/snapshot/
 
 # ----------------------------------------------------------------- build ---
 # NOTE: *.complete-platform.json IS committed. It records a supported release

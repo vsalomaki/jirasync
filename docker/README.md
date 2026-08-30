@@ -16,27 +16,54 @@ docker compose -f docker/compose.yml logs -f jira
 First boot takes several minutes while Jira builds its schema. The healthcheck
 polls `/status` and reports healthy once it returns `RUNNING`.
 
-## Finish setup by hand
+## What can come from the environment, and what cannot
 
-The database configures itself. Jira reads the `ATL_JDBC_*` variables in the
-compose file, writes its own `dbconfig.xml` and runs the first-run upgrade tasks
-without anyone touching the wizard, so the database step never appears.
+Copy `.env.example` to `.env` and run:
 
-What is left is the browser wizard at `http://localhost:8180`, which opens on
-"Set up application properties":
+    docker compose --env-file docker/.env -f docker/compose.yml up -d
+
+**Settings: yes.** The database configures itself from `ATL_JDBC_*`, so the
+wizard never asks for it. Port, image tag, database credentials and JVM sizing
+come from `.env`. Anything the image does not expose directly can still be
+written into `jira-config.properties` through numbered
+`ADDITIONAL_JIRA_CONFIG_NN` variables, with a `__EXPAND_ENV` suffix if a value
+needs a secret substituted from another variable.
+
+**Licence and administrator account: no.** The image's entrypoint has no
+handling for either. Both are written to the database by the setup wizard, so
+there is no variable to set. The remaining manual steps are therefore:
 
 1. **Application properties.** Title and base URL. Anything is fine.
-2. **Licence.** Jira will not leave `FIRST_RUN` without one. A free 30 day Data
-   Center evaluation key comes from `my.atlassian.com` and needs an Atlassian
-   account. This is the only step that cannot be done offline.
+2. **Licence.** A free 30 day Data Center evaluation key from `my.atlassian.com`,
+   which needs an Atlassian account. Jira will not leave `FIRST_RUN` without it.
 3. **Administrator account.** Local and disposable.
 4. **Mail notifications.** Skip.
+
+Driving that wizard over HTTP is possible in principle, but its XSRF handling
+and multi step form dispatch made it unreliable enough not to ship. Snapshot the
+result instead, below, which makes the wizard a one time cost rather than
+something to automate.
 
 Then create a personal access token: profile menu, Personal Access Tokens,
 Create token. That is the same auth path as the real instances (ADR-006).
 
-Point the connectivity probe at `http://localhost:8180` with that token in
+Point the connectivity probe at the instance with that token in
 `JIRASYNC_TOKEN`, the same way it is pointed at a real instance.
+
+## Make setup a one time cost
+
+Once the wizard is done, snapshot the volumes. Restoring skips setup entirely,
+including the licence, so a rebuild costs seconds rather than another trip to
+`my.atlassian.com`.
+
+    docker compose -f docker/compose.yml stop
+    docker run --rm -v jirasync-test_jira:/from -v "$PWD/docker/snapshot":/to \
+      alpine tar czf /to/jira.tgz -C /from .
+    docker run --rm -v jirasync-test_db:/from -v "$PWD/docker/snapshot":/to \
+      alpine tar czf /to/db.tgz -C /from .
+
+Restore by reversing the mounts into a fresh pair of volumes. `docker/snapshot/`
+is gitignored: it contains the licence and the admin account.
 
 ### Before the licence is entered
 
