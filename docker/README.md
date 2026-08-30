@@ -40,10 +40,32 @@ written to the database by the wizard, so there is nothing to set. The remaining
 manual steps are therefore:
 
 1. **Application properties.** Title and base URL. Anything is fine.
-2. **Licence.** A free 30 day Data Center evaluation key from `my.atlassian.com`,
-   which needs an Atlassian account. Jira will not leave `FIRST_RUN` without it.
+2. **Licence.** See below. Jira will not leave `FIRST_RUN` without one.
 3. **Administrator account.** Local and disposable.
 4. **Mail notifications.** Skip.
+
+### The licence is the blocker
+
+Self-service trials are gone. Atlassian's own documentation states that from
+30 March 2026 trial licences can no longer be generated for Atlassian-owned Data
+Center products, and directs people to request one through the purchasing
+contact form for manual review instead.
+
+So this stack cannot be brought up by anyone who does not already hold a key.
+Two routes worth trying, in order:
+
+- **An existing Data Center entitlement.** Whoever administers the Atlassian
+  account should check whether the licences already held cover a non-production
+  instance. Data Center subscriptions have historically allowed test and staging
+  deployments, which is exactly what this is. That is a commercial question, not
+  a technical one, and it is the cheapest route if the answer is yes.
+- **A requested trial**, through the purchasing contact form. Manual review, so
+  assume it takes days rather than minutes.
+
+**Do not let this block the build.** The backend layer can be developed and
+tested against recorded responses without a live instance at all, and the probe
+run against the real instances produces exactly those recordings. This stack
+becomes useful the moment a key exists; until then it is an empty container.
 
 Driving that wizard over HTTP is possible in principle, but its XSRF handling
 and multi step form dispatch made it unreliable enough not to ship. Snapshot the
@@ -59,8 +81,9 @@ Point the connectivity probe at the instance with that token in
 ## Make setup a one time cost
 
 Once the wizard is done, snapshot the volumes. Restoring skips setup entirely,
-including the licence, so a rebuild costs seconds rather than another trip to
-`my.atlassian.com`.
+including the licence. That matters more than it used to: a licence is now slow
+to obtain and cannot be self-served, so a working instance is worth preserving
+rather than rebuilding.
 
     docker compose -f docker/compose.yml stop
     docker run --rm -v jirasync-test_jira:/from -v "$PWD/docker/snapshot":/to \
