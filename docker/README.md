@@ -126,10 +126,16 @@ the code against them.
 
 ## Match the real version
 
-The compose file pins `9.12`, which currently resolves to 9.12.38, to match the
-deployed Data Center line. If the real instances move, change the tag and
-rebuild: the changelog endpoint question above is version dependent, and
-answering it against the wrong version answers nothing.
+The compose file pins `10.3`, the LTS line both real instances run: host 1 on
+10.3.23 and host 2 on 10.3.19. Set `JIRA_IMAGE_TAG` in `.env` to pin an exact
+patch where a difference matters.
+
+It was pinned to `9.12` until the instances were probed and turned out to be on
+10.3. That cost less than it might have, because the question the pin existed
+for, whether the dedicated changelog endpoint exists, ended up answered against
+the real instances instead. It returns 404 on both, so `expand=changelog` capped
+at 100 histories is the only route and no container was going to tell us
+otherwise.
 
 ## Tear down
 

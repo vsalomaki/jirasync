@@ -25,7 +25,7 @@ services:
       retries: 20
 
   jira:
-    image: atlassian/jira-software:${JIRA_IMAGE_TAG:-9.12}
+    image: atlassian/jira-software:${JIRA_IMAGE_TAG:-10.3}
     container_name: jirasync-test-jira
     depends_on:
       db:
