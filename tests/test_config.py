@@ -6,6 +6,20 @@ from jirasync.errors import ConfigError, RoleError
 REPO_RELATIVE = {"root": "."}
 
 
+def _instance_with(tmp_path, name, **identity):
+    from pathlib import Path
+
+    import yaml
+
+    repo = Path(__file__).resolve().parent.parent
+    data = yaml.safe_load((repo / "config" / "instance.example.yaml").read_text())
+    data["instance"]["id"] = name
+    data["identity"].update(identity)
+    path = tmp_path / f"{name}.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    return path
+
+
 def test_example_loads_as_a_source_only_split(top_level_path):
     config = load_top_level_config(top_level_path)
     assert config.mode == "split"
@@ -113,21 +127,21 @@ def test_deployment_resolves_everything_the_config_names(write_yaml, tmp_path):
 
 
 def test_direct_deployment_rejects_two_configs_with_the_same_instance_id(write_yaml, tmp_path):
+    """Both ends use `blank` here so the project-key overlap check, which is a
+    different failure, does not fire first and mask this one."""
     from pathlib import Path
 
-    import yaml
-
     repo = Path(__file__).resolve().parent.parent
-    original = yaml.safe_load((repo / "config" / "instance.example.yaml").read_text())
-    twin = tmp_path / "twin.yaml"
-    twin.write_text(yaml.safe_dump(original, allow_unicode=True), encoding="utf-8")
-
-    path = write_yaml(
-        "jirasync.yaml",
-        _top(mode="direct", destination=str(twin)),
-    )
+    src = _instance_with(tmp_path, "twin-a", unset_value="blank")
+    dst = _instance_with(tmp_path, "twin-b", unset_value="blank")
+    # Same declared instance id in both files, which is the case under test.
+    for path in (src, dst):
+        path.write_text(
+            path.read_text().replace("id: twin-a", "id: beta").replace("id: twin-b", "id: beta")
+        )
+    top = write_yaml("jirasync.yaml", _top(mode="direct", source=str(src), destination=str(dst)))
     with pytest.raises(ConfigError, match="same instance id"):
-        load_deployment(path, root=repo)
+        load_deployment(top, root=repo)
 
 
 def test_deployment_round_trips_through_its_own_json(write_yaml):
@@ -137,3 +151,26 @@ def test_deployment_round_trips_through_its_own_json(write_yaml):
     deployment = load_deployment(write_yaml("jirasync.yaml", _top()), root=repo)
     restored = Deployment.model_validate_json(deployment.model_dump_json())
     assert restored == deployment
+
+
+def test_direct_mode_rejects_a_shared_project_key_under_the_self_key_sentinel(write_yaml, tmp_path):
+    """An unpaired issue advertises its own key, so a shared project key would
+    let an inbound key bind a local issue that means nothing by it."""
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    src = _instance_with(tmp_path, "alpha", unset_value="self_key")
+    dst = _instance_with(tmp_path, "beta", unset_value="blank")
+    path = write_yaml("jirasync.yaml", _top(mode="direct", source=str(src), destination=str(dst)))
+    with pytest.raises(ConfigError, match="means nothing by it"):
+        load_deployment(path, root=repo)
+
+
+def test_shared_project_key_is_allowed_when_neither_side_uses_the_sentinel(write_yaml, tmp_path):
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parent.parent
+    src = _instance_with(tmp_path, "alpha", unset_value="blank")
+    dst = _instance_with(tmp_path, "beta", unset_value="blank")
+    path = write_yaml("jirasync.yaml", _top(mode="direct", source=str(src), destination=str(dst)))
+    load_deployment(path, root=repo)

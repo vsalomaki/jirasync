@@ -28,6 +28,11 @@ instance:
 identity:
   external_id_field: customfield_20077
   holds: source_key                 # source_key | shared_external_system  (Q3)
+  unset_value: self_key             # blank | self_key
+                                    # self_key: an unpaired issue defaults to
+                                    # carrying its own key, so the field is
+                                    # never blank and IS NOT EMPTY matches
+                                    # everything. See ADR-023.
   match: exact                      # exact | regex
   # match_regex: '(?:ref\s*)?(?P<id>[A-Z]+-\d+)'   # required if match: regex
   corroborate_with_summary: true    # only where no base exists. See ADR-021

@@ -208,3 +208,33 @@ def test_toggle_accepts_the_field_name_as_well_as_the_alias():
     assert Toggle(import_=False).import_ is False
     assert Attachments(import_=False).import_ is False
     assert Toggle.model_validate({"import": False}).import_ is False
+
+
+@pytest.mark.parametrize(
+    ("unset_value", "external_id", "issue_key", "expected"),
+    [
+        # Blank always means unpaired, whichever sentinel is configured.
+        ("blank", None, "TOOL-88", True),
+        ("blank", "", "TOOL-88", True),
+        ("blank", "   ", "TOOL-88", True),
+        ("self_key", None, "TOOL-88", True),
+        # A real pairing is never unset.
+        ("blank", "PF-45", "TOOL-88", False),
+        ("self_key", "PF-45", "TOOL-88", False),
+        # The observed default: an unpaired issue pointing at itself.
+        ("self_key", "TOOL-88", "TOOL-88", True),
+        ("self_key", " TOOL-88 ", "TOOL-88", True),
+        # The same value is a genuine pairing when the sentinel is not in use.
+        ("blank", "TOOL-88", "TOOL-88", False),
+    ],
+)
+def test_unset_external_id_depends_on_the_configured_sentinel(
+    mutate, instance_path, unset_value, external_id, issue_key, expected
+):
+    from jirasync.instance import is_unset_external_id
+
+    path = mutate(
+        instance_path, "instance.yaml", lambda d: d["identity"].update(unset_value=unset_value)
+    )
+    config = load_instance_config(path)
+    assert is_unset_external_id(config, external_id, issue_key) is expected

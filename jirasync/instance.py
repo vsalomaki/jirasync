@@ -108,6 +108,10 @@ class Identity(BaseModel):
 
     external_id_field: str = Field(min_length=1)
     holds: Literal["source_key", "shared_external_system"] = "source_key"
+    # An unpaired issue does not always leave this field blank. Some instances
+    # default it to the issue's own key, so every issue carries a value and
+    # `IS NOT EMPTY` matches all of them. See ADR-023.
+    unset_value: Literal["blank", "self_key"] = "blank"
     match: Literal["exact", "regex"] = "exact"
     match_regex: str | None = None
     corroborate_with_summary: bool = True
@@ -309,6 +313,17 @@ class InstanceConfig(BaseModel):
     @property
     def skew(self) -> timedelta:
         return _parse_duration(self.skew_tolerance)
+
+
+def is_unset_external_id(config: InstanceConfig, external_id: str | None, issue_key: str) -> bool:
+    """Whether this external id means "not paired with anything".
+
+    Blank always counts. Under `self_key` an issue pointing at itself is a
+    default nobody wrote, which is the same thing said differently.
+    """
+    if external_id is None or not external_id.strip():
+        return True
+    return config.identity.unset_value == "self_key" and external_id.strip() == issue_key
 
 
 def validate_against_schema(

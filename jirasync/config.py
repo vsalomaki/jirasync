@@ -145,6 +145,23 @@ def load_deployment(path: str | Path, *, root: str | Path | None = None) -> Depl
         if named:
             instances[role] = load_instance_config(base / named, schema)
 
+    # Under the self_key sentinel an unpaired issue advertises its own key as its
+    # external id, so a shared project key between the two ends would let an
+    # inbound key match a local issue that means nothing by it. See ADR-023.
+    src, dst = instances["source"], instances["destination"]
+    if src is not None and dst is not None:
+        sentinel_in_use = any(i.identity.unset_value == "self_key" for i in (src, dst))
+        shared = {s.local_key for s in src.scope.values()} & {
+            s.local_key for s in dst.scope.values()
+        }
+        if sentinel_in_use and shared:
+            raise ConfigError(
+                f"source and destination both use project key(s) {sorted(shared)}, and "
+                f"one of them treats an issue's own key as an unset external id; an "
+                f"inbound key would match a local issue that means nothing by it",
+                path=path,
+            )
+
     ids = {r: i.instance.id for r, i in instances.items() if i is not None}
     if len(set(ids.values())) != len(ids):
         raise ConfigError(
